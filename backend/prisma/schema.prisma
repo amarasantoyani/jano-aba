@@ -1,0 +1,119 @@
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  moduleFormat           = "esm"
+  generatedFileExtension = "ts"
+  importFileExtension    = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  THERAPIST
+}
+
+enum ProgramStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(150)
+  email        String   @unique @db.VarChar(254)
+  passwordHash String   @db.Text
+  role         UserRole
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  therapistAuthorizations PatientTherapistAuthorization[] @relation("AuthorizedTherapist")
+  grantedAuthorizations   PatientTherapistAuthorization[] @relation("AuthorizationGrantor")
+  revokedAuthorizations   PatientTherapistAuthorization[] @relation("AuthorizationRevoker")
+}
+
+model Patient {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(150)
+  guardianName String   @db.VarChar(150)
+  birthDate    DateTime @db.Date
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  programs       TherapyProgram[]
+  authorizations PatientTherapistAuthorization[]
+}
+
+model PatientTherapistAuthorization {
+  id          String    @id @default(uuid()) @db.Uuid
+  patientId   String    @db.Uuid
+  therapistId String    @db.Uuid
+  grantedById String    @db.Uuid
+  grantedAt   DateTime  @default(now()) @db.Timestamptz(3)
+  revokedById String?   @db.Uuid
+  revokedAt   DateTime? @db.Timestamptz(3)
+
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  therapist User    @relation("AuthorizedTherapist", fields: [therapistId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  grantedBy User    @relation("AuthorizationGrantor", fields: [grantedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  revokedBy User?   @relation("AuthorizationRevoker", fields: [revokedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  sessions TherapySession[]
+
+  @@index([patientId])
+  @@index([therapistId])
+}
+
+model TherapyProgram {
+  id        String        @id @default(uuid()) @db.Uuid
+  patientId String        @db.Uuid
+  name      String        @db.VarChar(150)
+  status    ProgramStatus @default(NOT_STARTED)
+  createdAt DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime      @updatedAt @db.Timestamptz(3)
+
+  patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  objectives Objective[]
+
+  @@index([patientId])
+}
+
+model Objective {
+  id          String   @id @default(uuid()) @db.Uuid
+  programId   String   @db.Uuid
+  description String   @db.VarChar(500)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  program TherapyProgram  @relation(fields: [programId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  records SessionRecord[]
+
+  @@index([programId])
+}
+
+model TherapySession {
+  id              String   @id @default(uuid()) @db.Uuid
+  authorizationId String   @db.Uuid
+  occurredAt      DateTime @db.Timestamptz(3)
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+
+  authorization PatientTherapistAuthorization @relation(fields: [authorizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  records       SessionRecord[]
+
+  @@index([authorizationId, occurredAt])
+}
+
+model SessionRecord {
+  id          String  @id @default(uuid()) @db.Uuid
+  sessionId   String  @db.Uuid
+  objectiveId String  @db.Uuid
+  achieved    Boolean
+
+  session   TherapySession @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  objective Objective      @relation(fields: [objectiveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([sessionId, objectiveId])
+}
