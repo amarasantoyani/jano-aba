@@ -4,6 +4,7 @@ import {authRouter, requireTrustedOrigin, sessionMiddleware} from "./routes/auth
 import { errorHandler } from "./middlewares/error-handler.js";
 import { patientsRouter } from "./routes/patients.js";
 import { authorizationsRouter } from "./routes/authorizations.js";
+import { programsRouter } from "./routes/programs.js";
 
 export const app = express();
 
@@ -36,6 +37,7 @@ app.use("/api", sessionMiddleware);
 app.use("/api/auth", authRouter);
 app.use("/api/patients", patientsRouter);
 app.use("/api/authorizations", authorizationsRouter);
+app.use("/api/programs", programsRouter);
 
 app.use((_req, res) => {
   res.status(404).json({
