@@ -3,6 +3,7 @@ import { prisma } from "./lib/prisma.js";
 import {authRouter, requireTrustedOrigin, sessionMiddleware} from "./routes/auth.js";
 import { errorHandler } from "./middlewares/error-handler.js";
 import { patientsRouter } from "./routes/patients.js";
+import { authorizationsRouter } from "./routes/authorizations.js";
 
 export const app = express();
 
@@ -34,6 +35,7 @@ app.use("/api", requireTrustedOrigin);
 app.use("/api", sessionMiddleware);
 app.use("/api/auth", authRouter);
 app.use("/api/patients", patientsRouter);
+app.use("/api/authorizations", authorizationsRouter);
 
 app.use((_req, res) => {
   res.status(404).json({
