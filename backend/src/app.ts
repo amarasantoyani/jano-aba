@@ -5,6 +5,7 @@ import { errorHandler } from "./middlewares/error-handler.js";
 import { patientsRouter } from "./routes/patients.js";
 import { authorizationsRouter } from "./routes/authorizations.js";
 import { programsRouter } from "./routes/programs.js";
+import { sessionsRouter } from "./routes/sessions.js";
 
 export const app = express();
 
@@ -38,6 +39,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/patients", patientsRouter);
 app.use("/api/authorizations", authorizationsRouter);
 app.use("/api/programs", programsRouter);
+app.use("/api/sessions", sessionsRouter);
 
 app.use((_req, res) => {
   res.status(404).json({
