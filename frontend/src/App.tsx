@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { api, ApiError } from "./lib/api";
 import type { AuthUser } from "./lib/api";
 import "./App.css";
+import PatientsPage from "./pages/PatientsPage";
 
 function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -159,6 +160,7 @@ function App() {
             <p className="page-description">
               Acompanhe pacientes, programas terapêuticos e sessões.
             </p>
+            <PatientsPage key={user.id} user={user} />
 
             {actionError && (
               <p className="feedback-error" role="alert">
