@@ -1,0 +1,13 @@
+{
+  "name": "jano-aba",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ABA therapy session tracking application",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=24 <25"
+  }
+}
