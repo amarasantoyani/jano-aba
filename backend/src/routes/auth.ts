@@ -15,7 +15,13 @@ declare module "express-session" {
 
 const secret = process.env.SESSION_SECRET;
 const connectionString = process.env.DATABASE_URL;
-const appOrigin = process.env.APP_ORIGIN;
+const appOrigin = process.env.APP_ORIGIN ?? process.env.RENDER_EXTERNAL_URL;
+
+if (!appOrigin) {
+  throw new Error("APP_ORIGIN or RENDER_EXTERNAL_URL must be configured.");
+}
+
+const trustedOrigin = new URL(appOrigin).origin;
 
 if (!secret || secret.length < 32) {
   throw new Error("SESSION_SECRET must have at least 32 characters.");
@@ -25,7 +31,6 @@ if (!connectionString || !appOrigin) {
   throw new Error("DATABASE_URL and APP_ORIGIN are required.");
 }
 
-const trustedOrigin = new URL(appOrigin).origin;
 const isProduction = process.env.NODE_ENV === "production";
 const cookieName = "jano.sid";
 
