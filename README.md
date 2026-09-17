@@ -6,10 +6,10 @@ técnico da Jano Saúde.
 
 **Demonstração:** https://jano-aba.onrender.com/
 
-Use somente dados fictícios. As contas são `admin@example.com` e
-`therapist@example.com`; a senha da demonstração deve ser enviada ao
-avaliador separadamente. O serviço gratuito pode demorar a abrir após
-inatividade, e o banco gratuito do Render expira 30 dias após sua criação.
+As contas são `admin@example.com` e `therapist@example.com`
+A senha da demonstração será enviada separadamente. 
+Como o serviço é gratuito, pode demorar a abrir após inatividade, 
+e o banco gratuito do Render expira 30 dias após sua criação.
 
 ## Funcionalidades
 
@@ -152,7 +152,6 @@ Não há cadastro de usuários pela interface, edição de atendimentos,
 relatórios avançados ou suporte a múltiplas clínicas. Os usuários de
 avaliação são criados pelo seed. A solução não está preparada para uso
 clínico real sem as medidas descritas na evolução da arquitetura.
-
 As dependências transitivas com alertas foram substituídas por overrides.
 A justificativa e as verificações estão em docs/decisions.md.
 Para conferir a árvore de dependências, foi utilizado npm 11.19.1.
