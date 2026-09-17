@@ -38,12 +38,14 @@ const cookieOptions = {
 
 const PgSessionStore = connectPgSimple(session);
 
+export const sessionStore = new PgSessionStore({
+  conString: connectionString,
+  tableName: "session",
+  createTableIfMissing: false
+});
+
 export const sessionMiddleware = session({
-  store: new PgSessionStore({
-    conString: connectionString,
-    tableName: "session",
-    createTableIfMissing: false
-  }),
+  store: sessionStore,
   name: cookieName,
   secret,
   resave: false,
