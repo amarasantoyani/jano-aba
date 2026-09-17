@@ -6,6 +6,7 @@ import { patientsRouter } from "./routes/patients.js";
 import { authorizationsRouter } from "./routes/authorizations.js";
 import { programsRouter } from "./routes/programs.js";
 import { sessionsRouter } from "./routes/sessions.js";
+import { therapistsRouter } from "./routes/therapists.js";
 
 export const app = express();
 
@@ -40,6 +41,7 @@ app.use("/api/patients", patientsRouter);
 app.use("/api/authorizations", authorizationsRouter);
 app.use("/api/programs", programsRouter);
 app.use("/api/sessions", sessionsRouter);
+app.use("/api/therapists", therapistsRouter);
 
 app.use((_req, res) => {
   res.status(404).json({

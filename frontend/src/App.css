@@ -296,3 +296,127 @@ h1 {
     grid-template-columns: 1fr;
   }
 }
+.text-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #285c76;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.inline-form {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.inline-form .form-field {
+  flex: 1 1 240px;
+}
+
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #eaf0f2;
+  color: #3d566a;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.panel .program-title {
+  margin: 0;
+}
+
+.objective-list {
+  padding-left: 24px;
+  margin-block: 20px;
+  line-height: 1.6;
+}
+
+.objective-list li {
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+
+.program-actions {
+  margin-top: 20px;
+}
+
+.program-actions p {
+  color: #526572;
+  font-size: 14px;
+}
+
+.form-field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #8ba2b2;
+  border-radius: 8px;
+  color: #24333d;
+  background: #fff;
+}
+
+.field-hint {
+  color: #526572;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.panel .subsection-title {
+  margin-top: 28px;
+}
+
+.authorization-list {
+  padding: 0;
+  margin: 16px 0 0;
+  list-style: none;
+}
+
+.authorization-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-block: 16px;
+  border-bottom: 1px solid #dde7ec;
+}
+
+.authorization-list li:last-child {
+  border-bottom: 0;
+}
+
+.authorization-list p {
+  margin: 6px 0 0;
+  color: #526572;
+  font-size: 14px;
+}
+
+.session-form {
+  display: grid;
+  gap: 20px;
+}
+
+.objective-fieldset {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #c6d4dc;
+  border-radius: 8px;
+}
+
+.objective-fieldset legend {
+  padding-inline: 8px;
+  font-weight: 600;
+}
+
+.session-form > .button {
+  justify-self: start;
+}
