@@ -13,7 +13,8 @@ inatividade, e o banco gratuito do Render expira 30 dias após sua criação.
 
 ## Funcionalidades
 
-- Administrador cadastra pacientes, programas e objetivos.
+- Administrador cadastra e edita pacientes, cria programas e objetivos.
+- Exclusões de cadastros respeitam os vínculos e preservam as coletas.
 - Programas passam de não iniciados para em andamento e concluídos.
 - Administrador concede e revoga acesso dos terapeutas por paciente.
 - Terapeuta autorizado registra resultados de objetivos de um ou mais
@@ -69,7 +70,8 @@ npm run dev --workspace=@jano-aba/frontend
 ```
 
 Abra http://localhost:5173. As duas contas usam a `DEMO_PASSWORD` local.
-O seed cria contas ausentes; não apaga dados nem altera senhas existentes.
+O seed cria as contas iniciais e atualiza seus nomes para admin e terapeuta_1;
+não apaga dados nem altera senhas existentes.
 O proxy do Vite encaminha `/api` para a porta 3000.
 
 ## Testes

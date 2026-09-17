@@ -27,8 +27,8 @@ if (!secret || secret.length < 32) {
   throw new Error("SESSION_SECRET must have at least 32 characters.");
 }
 
-if (!connectionString || !appOrigin) {
-  throw new Error("DATABASE_URL and APP_ORIGIN are required.");
+if (!connectionString) {
+  throw new Error("DATABASE_URL is required.");
 }
 
 const isProduction = process.env.NODE_ENV === "production";

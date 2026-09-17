@@ -1,126 +1,75 @@
-# Decisões técnicas
+# Decisões e alternativas
 
-As decisões abaixo orientam a implementação.
-Mudanças relevantes devem atualizar este documento.
+## Por que essa stack
 
-## 1. TypeScript no frontend e backend
+TypeScript e React aproximam o projeto das tecnologias da equipe. Express
+atende a uma API pequena sem exigir muita estrutura. PostgreSQL combina com
+os relacionamentos e com a necessidade de salvar sessão e resultados juntos.
 
-- Contexto: prazo de três dias e equipe utiliza TypeScript e React.
-- Decisão: React no frontend e Express no backend.
-- Motivo: aproximar a entrega da stack da equipe com uma API pequena.
-- Alternativa: backend em .NET.
-- Trade-off: menor familiaridade com alguns componentes em troca
-  de maior alinhamento com a vaga.
+Prisma ajuda com os tipos, consultas e migrations. Não elimina SQL: o índice
+parcial e os bloqueios precisam de recursos específicos do PostgreSQL. SQL
+sem ORM também atenderia ao problema, com mais mapeamento manual dos dados.
 
-## 2. Aplicação única no deploy
+As regras ficaram nas rotas. Extrair serviços faria sentido se as mesmas
+operações fossem reutilizadas ou os módulos crescessem. Uma camada que apenas
+repassasse chamadas do Prisma acrescentaria arquivos sem ajudar neste escopo.
 
-- Contexto: demonstração com escopo e prazo limitados.
-- Decisão: Node.js serve a API e o build React.
-- Motivo: simplificar hospedagem e manter a mesma origem.
-- Alternativa: publicar frontend e backend separadamente.
-- Trade-off: publicação conjunta; separação futura continua possível.
+## Identificação e idade
 
-## 3. PostgreSQL e Prisma
+CPF não é necessário para registrar atendimentos, então não é coletado.
+UUID funciona como identificador interno; um inteiro sequencial também
+serviria e ocuparia menos espaço. Nenhum deles substitui controle de acesso
+nem impede cadastrar a mesma pessoa duas vezes.
 
-- Contexto: dados relacionados com exigências de integridade.
-- Decisão: banco relacional com migrations versionadas.
-- Motivo: utilizar FKs, unicidade, constraints e transações.
-- Alternativa: consultas SQL sem ORM.
-- Trade-off: Prisma reduz código repetitivo, mas recursos específicos
-  exigem SQL, como índice parcial e bloqueios de linhas.
+O enunciado pede idade. Guardar nascimento evita uma idade desatualizada depois
+do aniversário, mas exige um dado mais específico. Essa escolha pressupõe que
+a clínica conheça a data de nascimento; vale confirmar isso no uso real.
 
-## 4. UUID como chave primária
+## O que significa uma autorização
 
-- Contexto: entidades precisam de identificadores internos estáveis.
-- Decisão: usar UUID e não coletar CPF.
-- Motivo: evitar dependência de dados pessoais nos relacionamentos.
-- Alternativa: inteiro sequencial.
-- Trade-off: UUID ocupa mais espaço e não resolve duplicidade
-  de pessoas nem substitui autorização.
+Alternar um campo ativo na relação paciente-terapeuta seria mais curto, mas
+perderia os períodos anteriores. Uma linha por concessão mantém quem autorizou,
+quem revogou e quando. A sessão aponta para essa linha. Consultar o responsável
+exige uma relação adicional, em troca de não duplicar paciente e terapeuta.
 
-## 5. Data de nascimento
+Uma nova concessão não reabre a autorização antiga. Também não permite lançar
+um atendimento anterior à nova concessão. Se a clínica precisar desse fluxo,
+a regra de lançamento retroativo precisa ser revista explicitamente.
 
-- Contexto: o desafio exige idade.
-- Decisão: guardar birthDate e calcular a idade.
-- Motivo: evitar idade desatualizada.
-- Alternativa: idade informada com data de referência.
-- Trade-off: solicitar um dado mais específico que o enunciado.
+## Corrigir cadastro sem apagar atendimento
 
-## 6. Histórico de autorizações
+Editar os dados básicos do paciente resolve erros de digitação. Excluir
+cadastros ainda sem vínculos resolve registros criados por engano. Programas
+sem coletas podem sair junto com seus objetivos; os que têm resultados ficam.
 
-- Contexto: permissões podem ser revogadas sem apagar atendimentos.
-- Decisão: uma linha por período de autorização.
-- Motivo: preservar concessão, revogação e seus responsáveis.
-- Alternativa: alternar um campo ativo em uma única linha.
-- Trade-off: mais registros e consultas considerando períodos.
+Não foi adotado soft delete em todas as tabelas: exigiria decidir o que esconder
+em cada consulta. A exclusão física limitada por vínculos atende aos cadastros
+sem histórico. Para pacientes que já têm atendimentos, arquivamento seria uma
+extensão melhor que remover dados. Já a correção de uma coleta exige versões
+e justificativa, não apenas um botão de editar.
 
-## 7. Sessão vinculada à autorização
+## Sessão de login e sessão clínica são coisas diferentes
 
-- Contexto: identificar paciente, terapeuta e permissão utilizada.
-- Decisão: TherapySession referencia a autorização.
-- Motivo: evitar repetir paciente e terapeuta na sessão.
-- Alternativa: armazenar essas referências também na sessão.
-- Trade-off: consultas exigem uma relação adicional, mas evitamos
-  campos redundantes que poderiam divergir.
+O login usa cookie HttpOnly e uma sessão no PostgreSQL. Isso permite invalidar
+o login no logout e aproveita o banco que já existe. O custo é manter estado
+no servidor e proteger as escritas contra CSRF. A API confere a origem das
+requisições e utiliza cookie SameSite; em HTTPS, o cookie também é Secure.
 
-## 8. Resultados por objetivo e sessão
+## Onde simplificar o deploy
 
-- Contexto: registrar se o paciente realizou cada objetivo trabalhado.
-- Decisão: uma coleta booleana por objetivo e sessão.
-- Motivo: atender ao enunciado sem adicionar coleta por tentativa.
-- Alternativa: registrar várias tentativas e níveis de ajuda.
-- Trade-off: menor detalhamento clínico.
-- Ausência de coleta é diferente de resultado false.
+Um processo serve React e API no mesmo endereço. A publicação fica conjunta,
+mas reduz a configuração e evita separar origens só para este exercício.
+Render hospeda a aplicação e o banco. Docker é usado para o banco local.
+A evolução para operação real está em [architecture.md](architecture.md).
 
-## 9. Gravação atômica e concorrência
+## Dependências transitivas
 
-- Contexto: evitar atendimentos parciais e verificações invalidadas
-  por operações simultâneas.
-- Decisão: transação para sessão e coletas, com bloqueios nas
-  autorizações e nos programas envolvidos.
-- Motivo: coordenar gravação, revogação e conclusão de programas.
-- Alternativa: isolamento serializável com tratamento de retries.
-- Trade-off: operações sobre as mesmas linhas podem esperar;
-  transações precisam ser curtas e seguir ordem consistente.
+O Prisma 7.10.0 trazia versões de mysql2 e deepmerge-ts com alertas. Os overrides
+fixam mysql2 3.24.4 e deepmerge-ts 8.0.2. A última verificação anterior a estes
+ajustes não reportou vulnerabilidades no npm audit; isso não é uma garantia
+permanente. O npm 11.19.1 reconhece corretamente essas substituições.
 
-## 10. Preservação do significado histórico
-
-- Contexto: alterar objetivos pode mudar a interpretação das coletas.
-- Decisão: objetivos são criados antes de iniciar o programa e não podem ser editados nesta versão.
-- Motivo: preservar seu significado sem implementar versionamento.
-- Alternativa: versões de objetivos ou snapshots nas coletas.
-- Trade-off: menor flexibilidade nesta primeira versão.
-
-## 11. Atendimentos sem edição
-
-- Contexto: correções clínicas exigem rastreabilidade.
-- Decisão: não permitir editar ou excluir atendimentos nesta versão.
-- Motivo: evitar sobrescrever resultados sem histórico.
-- Alternativa: correções versionadas com autor, data e justificativa.
-- Trade-off: registros incorretos não poderão ser corrigidos pela
-  demonstração. Esse fluxo é necessário antes de uso operacional real.
-
-## 12. Sessões de login no servidor
-
-- Contexto: aplicação web publicada na mesma origem.
-- Decisão: sessão persistida no PostgreSQL e cookie HttpOnly.
-- Motivo: permitir expiração e invalidação no logout sem colocar
-  tokens de autenticação no armazenamento acessível ao JavaScript.
-- Alternativa: autenticação com tokens bearer.
-- Trade-off: manutenção de estado no servidor e necessidade
-  de proteção contra CSRF.
-
-## 13. Dependências transitivas
-
-Foram definidos overrides para mysql2 3.24.4 e deepmerge-ts 8.0.2,
-substituindo versões transitivas do Prisma com alertas de segurança.
-
-O Prisma foi mantido em 7.10.0. A configuração, aplicação de migrations
-no banco de testes, geração do cliente, build e testes de integração
-foram verificados com as substituições.
-
-O npm audit não apontou vulnerabilidades conhecidas na consulta realizada.
-A árvore foi verificada com npm 11.19.1, que reconhece os overrides.
-
-As substituições devem ser reavaliadas ao atualizar o Prisma, para
-removê-las quando suas dependências declaradas incorporarem as correções.
+Manter overrides tem custo de manutenção, especialmente porque deepmerge-ts
+mudou de versão principal. Configuração, migrations, build e testes precisam
+continuar passando. Ao atualizar o Prisma, é preciso conferir se os overrides
+ainda são necessários e removê-los quando houver suporte nas dependências dele.

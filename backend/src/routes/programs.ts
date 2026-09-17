@@ -243,3 +243,43 @@ programsRouter.patch("/:id/status", requireAdmin, async (req, res) => {
 
   res.status(200).json({ program });
 });
+
+programsRouter.delete("/:id", requireAdmin, async (req, res) => {
+  const id = validateId(req.params.id);
+  await prisma.$transaction(async (tx) => {
+    const programs = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "TherapyProgram" WHERE "id" = ${id}::uuid FOR UPDATE
+    `;
+    if (!programs[0]) {
+      throw new AppError(404, "PROGRAM_NOT_FOUND", "Programa não encontrado.");
+    }
+    const records = await tx.sessionRecord.count({ where: { objective: { programId: id } } });
+    if (records > 0) {
+      throw new AppError(409, "PROGRAM_HAS_RECORDS", "Este programa possui coletas e não pode ser excluído.");
+    }
+    await tx.objective.deleteMany({ where: { programId: id } });
+    await tx.therapyProgram.delete({ where: { id } });
+  });
+  res.status(204).end();
+});
+
+programsRouter.delete("/:id/objectives/:objectiveId", requireAdmin, async (req, res) => {
+  const programId = validateId(req.params.id);
+  const objectiveId = validateId(req.params.objectiveId);
+  await prisma.$transaction(async (tx) => {
+    const programs = await tx.$queryRaw<Array<{ status: string }>>`
+      SELECT "status" FROM "TherapyProgram" WHERE "id" = ${programId}::uuid FOR UPDATE
+    `;
+    if (!programs[0]) {
+      throw new AppError(404, "PROGRAM_NOT_FOUND", "Programa não encontrado.");
+    }
+    if (programs[0].status !== "NOT_STARTED") {
+      throw new AppError(409, "PROGRAM_ALREADY_STARTED", "Objetivos só podem ser excluídos antes do início do programa.");
+    }
+    const result = await tx.objective.deleteMany({ where: { id: objectiveId, programId } });
+    if (result.count === 0) {
+      throw new AppError(404, "OBJECTIVE_NOT_FOUND", "Objetivo não encontrado neste programa.");
+    }
+  });
+  res.status(204).end();
+});

@@ -45,6 +45,7 @@ export default function PatientDetailsPage({
   const [programs, setPrograms] = useState<TherapyProgram[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [editingPatient, setEditingPatient] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [actionError, setActionError] = useState("");
   const [refreshCount, setRefreshCount] = useState(0);
@@ -97,8 +98,8 @@ export default function PatientDetailsPage({
 
   async function saveChange(
     path: string,
-    method: "POST" | "PATCH",
-    body: object,
+    method: "POST" | "PATCH" | "DELETE",
+    body?: object,
     form?: HTMLFormElement
   ) {
     if (saving) {
@@ -114,6 +115,7 @@ export default function PatientDetailsPage({
         body: JSON.stringify(body)
       });
 
+      setEditingPatient(false);
       form?.reset();
       setRefreshCount((current) => current + 1);
     } catch (error) {
@@ -125,6 +127,30 @@ export default function PatientDetailsPage({
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleDeletePatient() {
+    if (saving || !window.confirm(`Excluir o paciente ${patient?.name}? Esta ação não pode ser desfeita.`)) return;
+    setSaving(true);
+    setActionError("");
+    try {
+      await api<void>(`/patients/${patientId}`, { method: "DELETE" });
+      onBack();
+    } catch (error) {
+      setActionError(error instanceof ApiError ? error.message : "Não foi possível excluir o paciente.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleEditPatient(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    void saveChange(`/patients/${patientId}`, "PATCH", {
+      name: String(data.get("name") ?? "").trim(),
+      guardianName: String(data.get("guardianName") ?? "").trim(),
+      birthDate: String(data.get("birthDate") ?? "")
+    });
   }
 
   function handleCreateProgram(event: FormEvent<HTMLFormElement>) {
@@ -168,6 +194,7 @@ export default function PatientDetailsPage({
           className="button button-secondary"
           type="button"
           onClick={onBack}
+          disabled={saving}
         >
           Voltar aos pacientes
         </button>
@@ -191,7 +218,37 @@ export default function PatientDetailsPage({
       ) : patient ? (
         <>
           <section className="panel" aria-labelledby="patient-title">
-            <h2 id="patient-title">{patient.name}</h2>
+            <div className="section-toolbar">
+              <h2 id="patient-title">{patient.name}</h2>
+              {isAdmin && (
+                <div className="record-actions">
+                  <button type="button" className="button button-secondary" disabled={saving}
+                    onClick={() => { setEditingPatient(!editingPatient); setActionError(""); }}>
+                    {editingPatient ? "Cancelar edição" : "Editar paciente"}
+                  </button>
+                  <button type="button" className="button button-danger" disabled={saving} onClick={handleDeletePatient}>
+                    Excluir paciente
+                  </button>
+                </div>
+              )}
+            </div>
+            {isAdmin && editingPatient && (
+              <form className="patient-form" onSubmit={handleEditPatient}>
+                <div className="form-field">
+                  <label htmlFor="edit-patient-name">Nome do paciente</label>
+                  <input id="edit-patient-name" name="name" defaultValue={patient.name} maxLength={150} required disabled={saving} />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="edit-guardian-name">Nome do responsável</label>
+                  <input id="edit-guardian-name" name="guardianName" defaultValue={patient.guardianName} maxLength={150} required disabled={saving} />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="edit-birth-date">Data de nascimento</label>
+                  <input id="edit-birth-date" name="birthDate" type="date" defaultValue={patient.birthDate.slice(0, 10)} required disabled={saving} />
+                </div>
+                <button type="submit" className="button" disabled={saving}>{saving ? "Salvando..." : "Salvar alterações"}</button>
+              </form>
+            )}
             <p>Responsável: {patient.guardianName}</p>
             <p>
               Nascimento:{" "}
@@ -238,9 +295,19 @@ export default function PatientDetailsPage({
             <article className="panel" key={program.id}>
               <div className="section-toolbar">
                 <h3 className="program-title">{program.name}</h3>
-                <span className="status-badge">
-                  {statusLabels[program.status]}
-                </span>
+                <div className="record-actions">
+                  <span className="status-badge">{statusLabels[program.status]}</span>
+                  {isAdmin && (
+                    <button type="button" className="button button-danger" disabled={saving}
+                      onClick={() => {
+                        if (window.confirm(`Excluir o programa ${program.name} e seus objetivos? Programas com coletas não podem ser excluídos.`)) {
+                          void saveChange(`/programs/${program.id}`, "DELETE");
+                        }
+                      }}>
+                      Excluir programa
+                    </button>
+                  )}
+                </div>
               </div>
 
               {program.objectives.length === 0 ? (
@@ -248,7 +315,21 @@ export default function PatientDetailsPage({
               ) : (
                 <ul className="objective-list">
                   {program.objectives.map((objective) => (
-                    <li key={objective.id}>{objective.description}</li>
+                    <li key={objective.id} className="objective-row">
+                      <span>{objective.description}</span>
+                      {isAdmin && (
+                        <button type="button" className="button button-danger" disabled={saving || program.status !== "NOT_STARTED"}
+                          title={program.status !== "NOT_STARTED" ? "Objetivos só podem ser excluídos antes do início do programa." : undefined}
+                          aria-label={`Excluir objetivo: ${objective.description}`}
+                          onClick={() => {
+                            if (window.confirm(`Excluir o objetivo ${objective.description}?`)) {
+                              void saveChange(`/programs/${program.id}/objectives/${objective.id}`, "DELETE");
+                            }
+                          }}>
+                          Excluir objetivo
+                        </button>
+                      )}
+                    </li>
                   ))}
                 </ul>
               )}

@@ -116,8 +116,6 @@ function App() {
           <span className="brand">Jano ABA</span>
 
           <div className="header-actions">
-            <span className="environment-badge">Demonstração</span>
-
             {user && (
               <button
                 className="button button-secondary"
@@ -216,9 +214,6 @@ function App() {
           </section>
         )}
 
-        <p className="demo-notice">
-          Ambiente de demonstração. Utilize somente dados fictícios.
-        </p>
       </main>
     </div>
   );

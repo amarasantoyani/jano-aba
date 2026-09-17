@@ -124,8 +124,15 @@ export default function PatientSessions({
     setFormError("");
     setSuccessMessage("");
 
-    if (records.length === 0 || records.length > 100) {
-      setFormError("Registre o resultado de 1 a 100 objetivos.");
+    if (records.length === 0) {
+      setFormError(
+        'Selecione "Realizou" ou "Não realizou" para pelo menos um objetivo.'
+      );
+      return;
+    }
+
+    if (records.length > 100) {
+      setFormError("Uma sessão pode conter até 100 objetivos.");
       return;
     }
 

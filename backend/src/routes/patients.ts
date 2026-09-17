@@ -7,6 +7,13 @@ export const patientsRouter = Router();
 
 patientsRouter.use(requireAuth);
 
+function validateId(value: unknown): string {
+  if (typeof value !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+    throw new AppError(404, "PATIENT_NOT_FOUND", "Paciente não encontrado.");
+  }
+  return value;
+}
+
 function validateName(value: unknown, fieldName: string): string {
   if (
     typeof value !== "string" ||
@@ -151,18 +158,7 @@ patientsRouter.get("/", async (req, res) => {
 
 patientsRouter.get("/:id", async (req, res) => {
   const user = res.locals.user;
-  const id = req.params.id;
-
-  if (
-    typeof id !== "string" ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-  ) {
-    throw new AppError(
-      404,
-      "PATIENT_NOT_FOUND",
-      "Paciente não encontrado."
-    );
-  }
+  const id = validateId(req.params.id);
 
   const patient = await prisma.patient.findFirst({
     where: {
@@ -189,4 +185,31 @@ patientsRouter.get("/:id", async (req, res) => {
   }
 
   res.status(200).json({ patient });
+});
+
+patientsRouter.patch("/:id", async (req, res) => {
+  if (res.locals.user.role !== "ADMIN") {
+    throw new AppError(403, "FORBIDDEN", "Somente administradores podem editar pacientes.");
+  }
+  const id = validateId(req.params.id);
+  const { name, guardianName, birthDate } = req.body ?? {};
+  const patient = await prisma.patient.update({
+    where: { id },
+    data: {
+      name: validateName(name, "Nome do paciente"),
+      guardianName: validateName(guardianName, "Nome do responsável"),
+      birthDate: validateBirthDate(birthDate)
+    }
+  });
+  res.json({ patient });
+});
+
+patientsRouter.delete("/:id", async (req, res) => {
+  if (res.locals.user.role !== "ADMIN") {
+    throw new AppError(403, "FORBIDDEN", "Somente administradores podem excluir pacientes.");
+  }
+  const id = validateId(req.params.id);
+  // Foreign keys also protect against a concurrent program or authorization creation.
+  await prisma.patient.delete({ where: { id } });
+  res.status(204).end();
 });

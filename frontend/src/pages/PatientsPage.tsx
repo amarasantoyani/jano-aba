@@ -133,7 +133,10 @@ if (selectedPatientId) {
       key={selectedPatientId}
       patientId={selectedPatientId}
       user={user}
-      onBack={() => setSelectedPatientId(null)}
+      onBack={() => {
+        setSelectedPatientId(null);
+        setRefreshCount((current) => current + 1);
+      }}
     />
   );
 }

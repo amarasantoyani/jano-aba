@@ -18,25 +18,20 @@ async function main() {
     type: argon2.argon2id
   });
 
-  const result = await prisma.user.createMany({
-    data: [
-      {
-        name: "Administrador de demonstração",
-        email: "admin@example.com",
-        passwordHash,
-        role: "ADMIN"
-      },
-      {
-        name: "Terapeuta de demonstração",
-        email: "therapist@example.com",
-        passwordHash,
-        role: "THERAPIST"
-      }
-    ],
-    skipDuplicates: true
-  });
+  await prisma.$transaction([
+    prisma.user.upsert({
+      where: { email: "admin@example.com" },
+      create: { name: "admin", email: "admin@example.com", passwordHash, role: "ADMIN" },
+      update: { name: "admin" }
+    }),
+    prisma.user.upsert({
+      where: { email: "therapist@example.com" },
+      create: { name: "terapeuta_1", email: "therapist@example.com", passwordHash, role: "THERAPIST" },
+      update: { name: "terapeuta_1" }
+    })
+  ]);
 
-  console.log(`Created ${result.count} demo users.`);
+  console.log("Initial accounts configured.");
 }
 
 main()

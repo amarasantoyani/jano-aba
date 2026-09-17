@@ -351,4 +351,64 @@ test("Clinical workflow", { timeout: 60000 }, async (t) => {
       therapist.id
     );
   });
+
+  await t.test("administrator can edit and delete an unlinked patient", async () => {
+    const body = { name: "New Patient", guardianName: "Guardian", birthDate: "2018-05-10" };
+    const created = await adminAgent.post("/api/patients").set("Origin", origin).send(body).expect(201);
+    const path = `/api/patients/${created.body.patient.id}`;
+    await therapistAgent.patch(path).set("Origin", origin).send(body).expect(403);
+    await therapistAgent.delete(path).set("Origin", origin).expect(403);
+    await adminAgent.patch(path).set("Origin", origin).send({ ...body, birthDate: "2018-02-30" }).expect(400);
+    const edited = await adminAgent.patch(path).set("Origin", origin)
+      .send({ ...body, name: "Corrected Patient", guardianName: "Corrected Guardian", birthDate: "2017-04-12" }).expect(200);
+    assert.equal(edited.body.patient.name, "Corrected Patient");
+    assert.equal(edited.body.patient.guardianName, "Corrected Guardian");
+    assert.equal(edited.body.patient.birthDate.slice(0, 10), "2017-04-12");
+    await adminAgent.delete(path).set("Origin", origin).expect(204);
+    await adminAgent.get(path).expect(404);
+    await adminAgent.delete(path).set("Origin", origin).expect(404);
+  });
+
+  await t.test("deletes unused programs and objectives with role and state checks", async () => {
+    const scenario = await createScenario(false);
+    const created = await adminAgent.post("/api/programs").set("Origin", origin)
+      .send({ patientId: scenario.patient.id, name: "Draft" }).expect(201);
+    const programId = created.body.program.id;
+    const objective = await adminAgent.post(`/api/programs/${programId}/objectives`).set("Origin", origin)
+      .send({ description: "Draft objective" }).expect(201);
+    const objectivePath = `/api/programs/${programId}/objectives/${objective.body.objective.id}`;
+    await therapistAgent.delete(objectivePath).set("Origin", origin).expect(403);
+    await therapistAgent.delete(`/api/programs/${programId}`).set("Origin", origin).expect(403);
+    await adminAgent.delete(`/api/programs/${programId}/objectives/${scenario.firstObjective.id}`).set("Origin", origin).expect(404);
+    await adminAgent.delete(objectivePath).set("Origin", origin).expect(204);
+    await adminAgent.patch(`/api/programs/${programId}/status`).set("Origin", origin).send({ status: "IN_PROGRESS" }).expect(409);
+    await adminAgent.delete(`/api/programs/${scenario.firstProgram.id}/objectives/${scenario.firstObjective.id}`).set("Origin", origin).expect(409);
+    await adminAgent.delete(`/api/programs/${scenario.firstProgram.id}`).set("Origin", origin).expect(204);
+    assert.equal(await prisma.objective.count({ where: { programId: scenario.firstProgram.id } }), 0);
+    await adminAgent.delete(`/api/patients/${scenario.patient.id}`).set("Origin", origin).expect(409);
+    await adminAgent.delete(`/api/programs/${programId}`).set("Origin", origin).expect(204);
+    await adminAgent.delete(`/api/programs/${scenario.secondProgram.id}`).set("Origin", origin).expect(204);
+    await adminAgent.delete(`/api/patients/${scenario.patient.id}`).set("Origin", origin).expect(204);
+  });
+
+  await t.test("deletion preserves collections and revoked authorization history", async () => {
+    const scenario = await createScenario();
+    const session = await therapistAgent.post("/api/sessions").set("Origin", origin)
+      .send(sessionPayload(scenario.patient.id, scenario.firstObjective.id)).expect(201);
+    await adminAgent.delete(`/api/programs/${scenario.firstProgram.id}`).set("Origin", origin).expect(409);
+    assert.equal(await prisma.objective.count({ where: { programId: scenario.firstProgram.id } }), 2);
+    await adminAgent.post(`/api/authorizations/${scenario.authorization!.id}/revoke`).set("Origin", origin).expect(200);
+    await adminAgent.delete(`/api/patients/${scenario.patient.id}`).set("Origin", origin).expect(409);
+    const history = await adminAgent.get(`/api/sessions/patient/${scenario.patient.id}`).expect(200);
+    assert.equal(history.body.sessions[0].id, session.body.session.id);
+    assert.equal(history.body.sessions[0].records[0].achieved, false);
+
+    const empty = await createScenario();
+    await adminAgent.delete(`/api/programs/${empty.firstProgram.id}`).set("Origin", origin).expect(204);
+    await adminAgent.delete(`/api/programs/${empty.secondProgram.id}`).set("Origin", origin).expect(204);
+    await adminAgent.post(`/api/authorizations/${empty.authorization!.id}/revoke`).set("Origin", origin).expect(200);
+    await adminAgent.delete(`/api/patients/${empty.patient.id}`).set("Origin", origin).expect(409);
+    assert.ok(await prisma.patientTherapistAuthorization.findUnique({ where: { id: empty.authorization!.id } }));
+  });
+
 });

@@ -26,15 +26,6 @@
   letter-spacing: -0.5px;
 }
 
-.environment-badge {
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: #e7f1ed;
-  color: #356c55;
-  font-size: 13px;
-  font-weight: 600;
-}
-
 .main-content {
   padding-block: 64px;
 }
@@ -87,13 +78,6 @@ h1 {
   margin: 0;
   color: #526572;
   line-height: 1.6;
-}
-
-.demo-notice {
-  margin-top: 32px;
-  color: #526572;
-  font-size: 14px;
-  line-height: 1.5;
 }
 
 @media (max-width: 760px) {
@@ -419,4 +403,31 @@ h1 {
 
 .session-form > .button {
   justify-self: start;
+}
+.record-actions, .objective-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.objective-row > span {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.button-danger {
+  color: #963a3a;
+  background: #fff;
+  border: 1px solid #d7aaaa;
+}
+
+.button-danger:hover:not(:disabled) {
+  background: #fbeeee;
+}
+.patient-form > button[type="submit"] {
+  justify-self: start;
+  align-self: end;
+  width: auto;
 }

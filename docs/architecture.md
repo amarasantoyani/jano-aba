@@ -1,116 +1,88 @@
-# Arquitetura
+# Da implementação à operação
 
-## Implementação atual
+## Como está publicado
 
-Um serviço Node.js no Render serve o React compilado e a API Express.
-O PostgreSQL guarda dados clínicos fictícios e sessões de login.
+O navegador carrega o React do mesmo serviço Node que responde à API.
+Express verifica autenticação e permissões antes de consultar o PostgreSQL.
+O banco guarda tanto os dados do atendimento quanto as sessões de login.
 
 ```mermaid
 flowchart TD
-    Browser["Navegador"] -->|HTTPS| App["Render: Express + React compilado"]
-    App -->|Prisma e SQL parametrizado| Clinical["Tabelas clínicas no PostgreSQL"]
-    App -->|connect-pg-simple| Login["Tabela session no mesmo PostgreSQL"]
-    Git["GitHub: código e migrations"] -->|Build e publicação| App
+    Browser["Navegador: React"] -->|HTTPS| App["Render: Node e Express"]
+    App -->|Prisma e SQL| DB[("PostgreSQL: dados e login")]
+    Git["GitHub: código e migrations"] -->|Build| App
 ```
 
-O frontend usa páginas React e um cliente HTTP com caminhos relativos
-`/api`. A API concentra validações, autenticação, permissões e transações
-nos módulos de rotas. Não existe camada de serviços separada.
+No desenvolvimento, Vite serve a interface e encaminha /api para o Express.
+Docker Compose sobe apenas o PostgreSQL. Os comandos e variáveis estão no
+README para que o avaliador consiga reproduzir o ambiente.
 
-Durante o desenvolvimento, Vite e Express rodam separadamente e o proxy do
-Vite encaminha a API. Docker Compose executa somente o PostgreSQL local.
+## Como uma mudança chega ao site
 
-## Autenticação e acesso
+A revisão começa localmente: instalação pelo lockfile, migrations no banco
+isolado de testes, testes de integração e build. Alterações de schema também
+exigem ler o SQL gerado; uma migration válida pode apagar dados se for inadequada.
 
-- Login com e-mail e senha; hashes Argon2id.
-- Sessão no PostgreSQL, regenerada após login e invalidada no logout.
-- Cookie HttpOnly, SameSite=Lax e Secure em produção.
-- Origem exata verificada nas operações de escrita, incluindo login.
-- Limitação de tentativas de login por IP, em memória no processo.
-- ADMIN gerencia pacientes, programas, objetivos e autorizações.
-- THERAPIST consulta e registra apenas para pacientes autorizados.
-- Credenciais do banco e SESSION_SECRET ficam no ambiente do servidor.
+Depois do commit e push, o deploy do Render instala as dependências e compila
+a aplicação. Na inicialização, migrate deploy aplica migrations pendentes e o
+seed configura as duas contas iniciais. O seed atualiza seus nomes para admin
+e terapeuta_1, mas preserva senhas e vínculos existentes. O serviço é liberado
+após iniciar; /api/ready permite conferir a conexão com o banco.
 
-UUID não substitui autorização. A API verifica o perfil e o vínculo com o
-paciente. A revogação bloqueia requisições posteriores; ela não remove dados
-que já foram recebidos e exibidos no navegador.
+Não há CI configurado no repositório. Automatizar build e testes com um
+PostgreSQL isolado seria o próximo passo: evita depender de alguém lembrar
+desses comandos. O deploy então deveria depender da aprovação desses checks.
 
-## API e persistência
+Executar migrations antes do servidor é uma simplificação para uma instância.
+Com várias instâncias ou dados reais, essa etapa deve ser separada e controlada.
+O seed de avaliação também deve sair da inicialização de um ambiente clínico.
 
-Prisma executa consultas e migrations. As operações críticas usam transações
-e bloqueios descritos no [modelo de dados](data-model.md).
-Erros são retornados em JSON, com código e mensagem. Falhas inesperadas
-produzem resposta genérica, sem stack trace. O log atual dessas falhas é
-mínimo, sem conteúdo clínico; não há rastreamento por ID de requisição.
+## E se o deploy der errado?
 
-Pacientes e sessões são paginados. Outras listagens têm as limitações
-explicitadas no modelo de dados. Não há especificação OpenAPI nesta entrega.
+Voltar o código não desfaz a migration. A versão anterior precisa aceitar o
+schema que ficou no banco. Por isso, mudanças maiores devem ser feitas em
+etapas: adicionar a estrutura nova, adaptar o código e os dados, e só depois
+remover o que deixou de ser usado. Migrations já aplicadas não são reescritas.
 
-## Publicação e alterações no banco
+Antes de uma mudança destrutiva, é necessário ter backup e restauração testada.
+Não há backup validado nesta entrega. O plano gratuito do Render também tem
+suspensão por inatividade e PostgreSQL com validade de 30 dias; ele serve à
+avaliação, não à continuidade de um atendimento clínico.
 
-O README registra os comandos de build, inicialização e variáveis do Render.
-O endpoint /api/health verifica o processo; /api/ready consulta o banco.
-A configuração de trust proxy é habilitada no ambiente Render para o cookie
-seguro funcionar atrás do proxy HTTPS.
+## Cuidados que já fazem parte do código
 
-O processo de revisão é manual nesta versão; não há workflow de CI no
-repositório. Antes de publicar uma alteração:
+As permissões são verificadas no backend, por paciente. Esconder um botão não
+é controle de acesso. A revogação bloqueia novas consultas e gravações, enquanto
+as sessões anteriores permanecem disponíveis ao administrador.
 
-1. Instalar pelo lockfile com npm ci.
-2. Aplicar migrations no banco de testes isolado e executar a suíte.
-3. Executar npm run build e revisar o resultado de npm audit.
-4. Revisar mudanças no SQL e compatibilidade com dados existentes.
-5. Fazer commit e push da revisão aprovada e acompanhar o deploy no Render.
-6. Conferir readiness, login e o fluxo clínico no endereço publicado.
+Senhas são armazenadas com Argon2id. O cookie de login é HttpOnly, SameSite=Lax
+e Secure em produção. A sessão é regenerada no login, destruída no logout e
+expira. Escritas exigem a origem configurada, e tentativas de login têm limite.
+Secrets ficam em variáveis de ambiente. Erros inesperados retornam mensagem
+genérica; os logs não precisam conter nomes, senhas ou resultados clínicos.
 
-No serviço demonstrativo, migrate deploy e o seed executam antes do servidor.
-O seed cria contas ausentes e não atualiza senhas nem apaga dados.
-Nunca usar migrate reset ou o banco de testes contra o banco publicado.
+Validações de entrada, FKs e transações evitam dados incoerentes. Não foram
+removidas para encurtar o código, porque sustentam os requisitos de acesso e
+preservação do histórico. Os dados usados na avaliação devem ser fictícios.
 
-Migrations aplicadas não são reescritas. Em uma alteração estrutural,
-prefira adicionar campos compatíveis, migrar dados e adaptar o código antes
-de remover estruturas antigas. Reverter o código não reverte o banco;
-rollback só funciona se a versão anterior aceitar o schema atual.
+## O que priorizar antes de dados reais
 
-## Limitações conhecidas
+Primeiro, confirmar a matriz de permissões com a clínica e usar contas
+individuais. Definir como corrigir coletas, registrar autor e motivo das
+alterações, e auditar acessos sem espalhar conteúdo clínico pelos logs.
 
-- Plano gratuito com suspensão por inatividade e banco com validade limitada.
-- Contas de demonstração compartilhadas; nenhum provisionamento de usuários
-  pela interface.
-- Sem backups configurados e restauração validada nesta entrega.
-- Sem auditoria completa de acessos, versionamento de correções ou alertas.
-- Limitador de login local ao processo; reinícios limpam os contadores.
+Depois, adotar banco com backup, testar recuperação e combinar metas de tempo
+de indisponibilidade e perda aceitável de dados. Restringir acesso de rede ao
+banco e separar credenciais de migrations e da aplicação. Retenção e processos
+de privacidade precisam ser definidos com os responsáveis pelo serviço.
 
-Essas limitações não impedem a avaliação com dados fictícios, mas precisam
-ser tratadas antes de uma operação clínica real.
+## Se o volume crescer
 
-## Evolução proposta
+Medir consultas lentas, latência, erros e conexões antes de mudar a arquitetura.
+Expandir paginação e ajustar índices conforme consultas reais. Sessões de login
+já são compartilhadas no banco, mas o limitador de login usa memória local e
+precisaria de estado compartilhado ao adicionar instâncias.
 
-### Antes de usar dados reais
-
-Definir com a clínica os perfis e a matriz de acesso, provisionar contas
-individuais e revisar a proteção da autenticação. Restringir o acesso de
-rede ao banco e separar as permissões de aplicação e migrations.
-
-Adotar banco com backups, testar restauração e definir metas de perda de
-dados e tempo de recuperação. Registrar auditoria de acesso e alteração com
-acesso restrito, sem copiar conteúdo clínico para logs operacionais.
-Implementar correções rastreáveis e definir retenção e procedimentos de
-privacidade com os responsáveis. Resolver dependências vulneráveis e revisar
-configurações antes dessa mudança de uso.
-
-### Automatizar a publicação
-
-Adicionar CI para instalação pelo lockfile, build e testes com PostgreSQL
-isolado. Publicar apenas revisões aprovadas que passaram nas verificações.
-Executar migrations em uma etapa de deploy separada, com plano de recuperação.
-O seed de demonstração não deve fazer parte da inicialização clínica real.
-
-### Conforme houver necessidade de escala
-
-Medir latência, erros e consultas lentas antes de alterar a topologia.
-Ajustar índices e limites de conexões. Se forem necessárias várias instâncias,
-as sessões já estão compartilhadas no banco, mas o limitador de login precisa
-de armazenamento compartilhado. Expandir paginação das demais listagens.
-Relatórios demorados podem ganhar processamento assíncrono quando forem
-implementados; não há necessidade de filas no fluxo atual de coleta.
+Separar relatórios demorados em tarefas assíncronas pode fazer sentido quando
+eles existirem. O fluxo atual salva pequenas transações e não precisa de filas
+ou microsserviços para funcionar.
