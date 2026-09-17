@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api, ApiError } from "../lib/api";
 import type { AuthUser } from "../lib/api";
+import PatientDetailsPage from "./PatientDetailsPage";
 
 interface Patient {
   id: string;
@@ -55,6 +56,7 @@ export default function PatientsPage({ user }: PatientsPageProps) {
   const [formError, setFormError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
   const limit = 20;
 
@@ -125,7 +127,16 @@ export default function PatientsPage({ user }: PatientsPageProps) {
       setSaving(false);
     }
   }
-
+if (selectedPatientId) {
+  return (
+    <PatientDetailsPage
+      key={selectedPatientId}
+      patientId={selectedPatientId}
+      user={user}
+      onBack={() => setSelectedPatientId(null)}
+    />
+  );
+}
   return (
     <section className="patients-section" aria-labelledby="patients-title">
       <div className="section-toolbar">
@@ -231,13 +242,21 @@ export default function PatientsPage({ user }: PatientsPageProps) {
             </thead>
 
             <tbody>
-              {patients.map((patient) => (
+            {patients.map((patient) => (
                 <tr key={patient.id}>
-                  <td>{patient.name}</td>
-                  <td>{patient.guardianName}</td>
-                  <td>{calculateAge(patient.birthDate)} anos</td>
+                <td>
+                    <button
+                    className="text-button"
+                    type="button"
+                    onClick={() => setSelectedPatientId(patient.id)}
+                    >
+                    {patient.name}
+                    </button>
+                </td>
+                <td>{patient.guardianName}</td>
+                <td>{calculateAge(patient.birthDate)} anos</td>
                 </tr>
-              ))}
+            ))}
             </tbody>
           </table>
         </div>
