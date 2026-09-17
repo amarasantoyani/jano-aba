@@ -55,10 +55,10 @@ O enunciado também pede explicar:
 - O que automatizar no processo de publicação.
 - Os cuidados com dados sensíveis de saúde.
 
-## 3. Suposições propostas para a primeira versão
+## 3. Suposições adotadas na primeira versão
 
 As decisões abaixo não estão completamente definidas no enunciado.
-Devem orientar a implementação após sua revisão.
+Foram adotadas para delimitar a implementação.
 
 ### Escopo
 
@@ -83,8 +83,9 @@ Devem orientar a implementação após sua revisão.
 ### Perfis e permissões
 
 - Haverá dois perfis: ADMIN e THERAPIST.
-- ADMIN gerencia pacientes, terapeutas, programas, objetivos
-  e autorizações.
+- ADMIN gerencia pacientes, programas, objetivos e autorizações.
+- Usuários de demonstração são provisionados pelo seed; ADMIN consulta
+  os terapeutas disponíveis, sem cadastro de usuários pela interface.
 - ADMIN pode consultar o histórico de todos os pacientes da clínica.
 - THERAPIST pode consultar somente pacientes para os quais possui
   autorização ativa e registrar seus próprios atendimentos.
@@ -196,8 +197,8 @@ Estas decisões complementam o enunciado e são suposições da solução.
   sem reabertura.
 - Um programa precisa ter pelo menos um objetivo para iniciar.
 - Novas coletas exigem programa IN_PROGRESS no momento da gravação.
-- Objetivos só podem ser criados ou alterados antes do início
-  do programa.
+- Objetivos só podem ser criados antes do início do programa.
+- A primeira versão não permite editar objetivos.
 - Cada atendimento exige pelo menos uma coleta.
 - A data do atendimento pode ser passada, mas não pode ser futura
   nem anterior à concessão da autorização utilizada.
@@ -211,7 +212,7 @@ Estas decisões complementam o enunciado e são suposições da solução.
 - Não haverá exclusão de cadastros ou edição de atendimentos
   na primeira versão.
 
-## 10. Documentação complementar planejada
+## 10. Documentação complementar
 
 - README.md: apresentação, execução, testes e acesso à demonstração.
 - docs/data-model.md: entidades, campos, relacionamentos e diagrama ER.

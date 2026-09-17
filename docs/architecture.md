@@ -1,187 +1,119 @@
 # Arquitetura
 
-## Estado do documento
+## Implementação atual
 
-Arquitetura planejada. A implementação, os testes e o deploy
-deverão confirmar ou atualizar as decisões abaixo.
-
-## Visão geral
-
-Uma aplicação React consome uma API Node.js com TypeScript.
-A API concentra regras de negócio, autenticação, autorização
-e acesso ao PostgreSQL por meio do Prisma.
-
-Frontend e backend ficam no mesmo repositório.
+Um serviço Node.js no Render serve o React compilado e a API Express.
+O PostgreSQL guarda dados clínicos fictícios e sessões de login.
 
 ```mermaid
 flowchart TD
-    Browser["Navegador — React"] -->|HTTPS /api| App["Node.js — Express"]
-    App --> Auth["Autenticação e autorização"]
-    Auth --> Services["Serviços de negócio"]
-    Services --> DB[("PostgreSQL")]
+    Browser["Navegador"] -->|HTTPS| App["Render: Express + React compilado"]
+    App -->|Prisma e SQL parametrizado| Clinical["Tabelas clínicas no PostgreSQL"]
+    App -->|connect-pg-simple| Login["Tabela session no mesmo PostgreSQL"]
+    Git["GitHub: código e migrations"] -->|Build e publicação| App
 ```
 
-## Tecnologias
+O frontend usa páginas React e um cliente HTTP com caminhos relativos
+`/api`. A API concentra validações, autenticação, permissões e transações
+nos módulos de rotas. Não existe camada de serviços separada.
 
-- React e TypeScript: interface.
-- Vite: desenvolvimento e build do frontend.
-- Node.js, TypeScript e Express: API.
-- Prisma: acesso ao banco e migrations.
-- PostgreSQL: persistência relacional.
-- Docker Compose: execução local da aplicação e do banco.
+Durante o desenvolvimento, Vite e Express rodam separadamente e o proxy do
+Vite encaminha a API. Docker Compose executa somente o PostgreSQL local.
 
-Versões serão fixadas na configuração do projeto e no lockfile.
+## Autenticação e acesso
 
-## Organização planejada
+- Login com e-mail e senha; hashes Argon2id.
+- Sessão no PostgreSQL, regenerada após login e invalidada no logout.
+- Cookie HttpOnly, SameSite=Lax e Secure em produção.
+- Origem exata verificada nas operações de escrita, incluindo login.
+- Limitação de tentativas de login por IP, em memória no processo.
+- ADMIN gerencia pacientes, programas, objetivos e autorizações.
+- THERAPIST consulta e registra apenas para pacientes autorizados.
+- Credenciais do banco e SESSION_SECRET ficam no ambiente do servidor.
 
-- frontend/src: páginas, componentes e cliente HTTP.
-- backend/src/routes: rotas e middlewares de acesso.
-- backend/src/services: regras de negócio e transações.
-- backend/src/lib: configuração e recursos compartilhados.
-- backend/prisma: schema, migrations e seed de demonstração.
-- backend/tests: testes.
-- docs: documentação.
+UUID não substitui autorização. A API verifica o perfil e o vínculo com o
+paciente. A revogação bloqueia requisições posteriores; ela não remove dados
+que já foram recebidos e exibidos no navegador.
 
-As rotas validam a entrada e chamam os serviços.
-Os serviços concentram regras e operações transacionais.
+## API e persistência
 
-Não haverá uma camada genérica de repositórios apenas
-para encapsular chamadas simples do Prisma.
+Prisma executa consultas e migrations. As operações críticas usam transações
+e bloqueios descritos no [modelo de dados](data-model.md).
+Erros são retornados em JSON, com código e mensagem. Falhas inesperadas
+produzem resposta genérica, sem stack trace. O log atual dessas falhas é
+mínimo, sem conteúdo clínico; não há rastreamento por ID de requisição.
 
-## Autenticação e autorização
+Pacientes e sessões são paginados. Outras listagens têm as limitações
+explicitadas no modelo de dados. Não há especificação OpenAPI nesta entrega.
 
-- Login com e-mail e senha.
-- Senhas armazenadas com algoritmo próprio para hashing de senhas.
-- Sessão de login no servidor, persistida no PostgreSQL.
-- Cookie com identificador opaco, HttpOnly, SameSite e Secure
-  no ambiente HTTPS.
-- Logout invalida a sessão de login.
-- Sessões possuem expiração.
-- Requisições que alteram dados terão proteção contra CSRF.
-- Tentativas de login terão limitação de frequência.
-- Nenhum cadastro público.
-- Permissões verificadas no backend em cada operação.
-- Terapeutas só acessam pacientes com autorização ativa.
+## Publicação e alterações no banco
 
-A sessão de login é um mecanismo técnico e não deve ser confundida
-com TherapySession, que representa um atendimento.
+O README registra os comandos de build, inicialização e variáveis do Render.
+O endpoint /api/health verifica o processo; /api/ready consulta o banco.
+A configuração de trust proxy é habilitada no ambiente Render para o cookie
+seguro funcionar atrás do proxy HTTPS.
 
-A tabela técnica de sessões de login será definida junto
-à implementação da autenticação.
+O processo de revisão é manual nesta versão; não há workflow de CI no
+repositório. Antes de publicar uma alteração:
 
-## API e erros
+1. Instalar pelo lockfile com npm ci.
+2. Aplicar migrations no banco de testes isolado e executar a suíte.
+3. Executar npm run build e revisar o resultado de npm audit.
+4. Revisar mudanças no SQL e compatibilidade com dados existentes.
+5. Fazer commit e push da revisão aprovada e acompanhar o deploy no Render.
+6. Conferir readiness, login e o fluxo clínico no endereço publicado.
 
-- Prefixo /api.
-- Entradas validadas no servidor.
-- Listagens paginadas com limite máximo.
-- Datas em formato ISO 8601.
-- Erros com formato consistente, sem detalhes internos.
-- 400 para entrada inválida.
-- 401 para ausência de autenticação válida.
-- 403 para ação não permitida ao perfil.
-- 404 para recurso inexistente ou fora do escopo de acesso.
-- 409 para conflitos de estado ou unicidade.
-- 500 para falhas inesperadas, com mensagem genérica.
-- Documentação OpenAPI refletindo os endpoints implementados.
+No serviço demonstrativo, migrate deploy e o seed executam antes do servidor.
+O seed cria contas ausentes e não atualiza senhas nem apaga dados.
+Nunca usar migrate reset ou o banco de testes contra o banco publicado.
 
-## Desenvolvimento local
+Migrations aplicadas não são reescritas. Em uma alteração estrutural,
+prefira adicionar campos compatíveis, migrar dados e adaptar o código antes
+de remover estruturas antigas. Reverter o código não reverte o banco;
+rollback só funciona se a versão anterior aceitar o schema atual.
 
-- PostgreSQL executado por Docker Compose.
-- Frontend e backend podem rodar separadamente durante
-  o desenvolvimento.
-- Vite encaminha /api ao backend.
-- .env.example documenta configurações sem secrets reais.
-- Migrations criam o schema.
-- Seed explícito disponibiliza dados fictícios.
-- O seed nunca apaga automaticamente dados existentes.
+## Limitações conhecidas
 
-## Deploy simplificado
+- Plano gratuito com suspensão por inatividade e banco com validade limitada.
+- Contas de demonstração compartilhadas; nenhum provisionamento de usuários
+  pela interface.
+- Sem backups configurados e restauração validada nesta entrega.
+- Sem auditoria completa de acessos, versionamento de correções ou alertas.
+- Limitador de login local ao processo; reinícios limpam os contadores.
+- Revisão dos avisos transitivos do Prisma ainda pendente de resolução
+  verificada. Instalar dependências de desenvolvimento no deploy não elimina
+  seu risco; a exposição deve ser analisada por dependência e uso.
 
-- Um serviço Node.js serve a API e os arquivos do build React.
-- Frontend e API usam a mesma origem.
-- PostgreSQL separado, preferencialmente gerenciado.
-- HTTPS fornecido pela plataforma de hospedagem.
-- Secrets configurados no ambiente.
-- Credenciais do banco acessíveis somente ao backend.
-- /api/health verifica se o processo responde.
-- /api/ready verifica a disponibilidade do banco sem expor detalhes.
+Essas limitações não impedem a avaliação com dados fictícios, mas precisam
+ser tratadas antes de uma operação clínica real.
 
-O provedor será escolhido e documentado durante o primeiro deploy.
+## Evolução proposta
 
-## Publicação de mudanças
+### Antes de usar dados reais
 
-1. Executar verificação de tipos e testes.
-2. Gerar o build.
-3. Revisar migrations e possíveis impactos.
-4. Aplicar migrations pendentes como etapa controlada de publicação.
-5. Publicar a versão da aplicação.
-6. Verificar readiness, login e fluxo principal.
+Definir com a clínica os perfis e a matriz de acesso, provisionar contas
+individuais e revisar a proteção da autenticação. Restringir o acesso de
+rede ao banco e separar as permissões de aplicação e migrations.
 
-Migrations já aplicadas não serão reescritas.
+Adotar banco com backups, testar restauração e definir metas de perda de
+dados e tempo de recuperação. Registrar auditoria de acesso e alteração com
+acesso restrito, sem copiar conteúdo clínico para logs operacionais.
+Implementar correções rastreáveis e definir retenção e procedimentos de
+privacidade com os responsáveis. Resolver dependências vulneráveis e revisar
+configurações antes dessa mudança de uso.
 
-Rollback da aplicação só é seguro se a versão anterior continuar
-compatível com o schema. Mudanças destrutivas exigem planejamento,
-backup e estratégia específica; não basta desfazer o deploy.
+### Automatizar a publicação
 
-## CI
+Adicionar CI para instalação pelo lockfile, build e testes com PostgreSQL
+isolado. Publicar apenas revisões aprovadas que passaram nas verificações.
+Executar migrations em uma etapa de deploy separada, com plano de recuperação.
+O seed de demonstração não deve fazer parte da inicialização clínica real.
 
-O pipeline deverá executar:
+### Conforme houver necessidade de escala
 
-- Instalação pelo lockfile.
-- Verificação de tipos.
-- Testes automatizados.
-- Build.
-
-Testes de integração usarão PostgreSQL isolado com migrations
-aplicadas, sem conexão com o banco publicado.
-
-## Segurança e operação
-
-- Dados fictícios na demonstração.
-- Secrets fora do Git.
-- Respostas e logs sem senhas, hashes ou tokens.
-- Logs sem nomes de pacientes ou resultados clínicos.
-- Logs operacionais com identificador da requisição.
-- Banco sem acesso público irrestrito.
-- Backups e restauração deverão ser definidos antes de uso real.
-
-## Evolução possível
-
-### Antes de operar com dados reais
-
-- Revisar permissões com a clínica.
-- Implementar correções de registros com rastreabilidade.
-- Definir auditoria de acessos e alterações.
-- Definir retenção de dados e procedimentos operacionais.
-- Testar restauração de backups.
-- Revisar segurança e requisitos de privacidade aplicáveis.
-
-### Conforme o volume aumentar
-
-- Medir latência, erros, conexões e consultas lentas.
-- Ajustar consultas, índices e pool de conexões.
-- Escalar a API horizontalmente se houver necessidade.
-- Manter sessões de login compartilhadas entre instâncias.
-- Usar banco com alta disponibilidade quando houver exigência.
-- Adicionar processamento assíncrono para tarefas demoradas,
-  como relatórios, apenas quando existirem.
-
-## Deployment
-
-The demonstration runs as a single Node.js service on Render.
-Express serves both the API and the compiled React application.
-Application data and login sessions are stored in PostgreSQL.
-
-The frontend and API share the same origin. Authentication uses
-HTTP-only session cookies, with secure cookies enabled in production.
-
-Database migrations run before the application starts. The demo seed
-creates missing demonstration accounts without deleting existing data.
-
-This startup process is a simplification for the single-instance demo.
-For a production environment with multiple instances, migrations should
-run in a separate deployment step.
-
-The free hosting plan has availability and retention limitations,
-including database expiration after 30 days. The demonstration uses
-fictional data only.
+Medir latência, erros e consultas lentas antes de alterar a topologia.
+Ajustar índices e limites de conexões. Se forem necessárias várias instâncias,
+as sessões já estão compartilhadas no banco, mas o limitador de login precisa
+de armazenamento compartilhado. Expandir paginação das demais listagens.
+Relatórios demorados podem ganhar processamento assíncrono quando forem
+implementados; não há necessidade de filas no fluxo atual de coleta.

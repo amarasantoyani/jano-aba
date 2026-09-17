@@ -15,7 +15,6 @@ if (process.env.RENDER === "true") {
 }
 app.disable("x-powered-by");
 app.use(express.json({ limit: "100kb" }));
-app.use(errorHandler);
 
 app.get("/api/health", (_req, res) => {
   res.status(200).json({
