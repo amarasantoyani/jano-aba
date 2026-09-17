@@ -80,9 +80,6 @@ rollback só funciona se a versão anterior aceitar o schema atual.
 - Sem backups configurados e restauração validada nesta entrega.
 - Sem auditoria completa de acessos, versionamento de correções ou alertas.
 - Limitador de login local ao processo; reinícios limpam os contadores.
-- Revisão dos avisos transitivos do Prisma ainda pendente de resolução
-  verificada. Instalar dependências de desenvolvimento no deploy não elimina
-  seu risco; a exposição deve ser analisada por dependência e uso.
 
 Essas limitações não impedem a avaliação com dados fictícios, mas precisam
 ser tratadas antes de uma operação clínica real.

@@ -109,3 +109,18 @@ Mudanças relevantes devem atualizar este documento.
 - Alternativa: autenticação com tokens bearer.
 - Trade-off: manutenção de estado no servidor e necessidade
   de proteção contra CSRF.
+
+## 13. Dependências transitivas
+
+Foram definidos overrides para mysql2 3.24.4 e deepmerge-ts 8.0.2,
+substituindo versões transitivas do Prisma com alertas de segurança.
+
+O Prisma foi mantido em 7.10.0. A configuração, aplicação de migrations
+no banco de testes, geração do cliente, build e testes de integração
+foram verificados com as substituições.
+
+O npm audit não apontou vulnerabilidades conhecidas na consulta realizada.
+A árvore foi verificada com npm 11.19.1, que reconhece os overrides.
+
+As substituições devem ser reavaliadas ao atualizar o Prisma, para
+removê-las quando suas dependências declaradas incorporarem as correções.

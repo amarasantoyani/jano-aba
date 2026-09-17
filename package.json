@@ -11,7 +11,11 @@
     "node": ">=24 <25"
   },
   "scripts": {
-  "build": "npm run db:generate --workspace=@jano-aba/backend && npm run build --workspace=./frontend && npm run build --workspace=@jano-aba/backend",
-  "start": "npm run start --workspace=@jano-aba/backend"
-}
+    "build": "npm run db:generate --workspace=@jano-aba/backend && npm run build --workspace=./frontend && npm run build --workspace=@jano-aba/backend",
+    "start": "npm run start --workspace=@jano-aba/backend"
+  },
+  "overrides": {
+    "mysql2": "3.24.4",
+    "deepmerge-ts": "8.0.2"
+  }
 }

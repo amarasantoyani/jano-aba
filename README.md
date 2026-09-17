@@ -151,6 +151,6 @@ relatórios avançados ou suporte a múltiplas clínicas. Os usuários de
 avaliação são criados pelo seed. A solução não está preparada para uso
 clínico real sem as medidas descritas na evolução da arquitetura.
 
-A revisão de dependências deve considerar o resultado atualizado de
-`npm audit`; os alertas transitivos do Prisma identificados durante o
-desenvolvimento permanecem uma pendência até sua resolução verificada.
+As dependências transitivas com alertas foram substituídas por overrides.
+A justificativa e as verificações estão em docs/decisions.md.
+Para conferir a árvore de dependências, foi utilizado npm 11.19.1.
