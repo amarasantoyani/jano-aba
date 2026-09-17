@@ -33,7 +33,6 @@ erDiagram
 As entidades de negócio usam UUID. A idade é calculada a partir de
 birthDate para não ficar desatualizada. Cada programa pertence a um
 paciente, mesmo que outros pacientes tenham programas com o mesmo nome.
-
 O schema completo está em `backend/prisma/schema.prisma`.
 A tabela técnica `session`, usada pelo login, foi omitida do diagrama.
 
@@ -58,8 +57,7 @@ A tabela técnica `session`, usada pelo login, foi omitida do diagrama.
 
 Sessão e coletas são salvas na mesma transação. A gravação bloqueia
 a autorização e os programas envolvidos para coordenar o atendimento
-com revogações, mudanças de estado e exclusões.
-
+com revogações, mudanças de estado e exclusões
 Se a gravação concluir primeiro, o atendimento é preservado e a
 revogação ocorre depois. Se a revogação concluir primeiro, a gravação
 é rejeitada. Operações sobre as mesmas linhas podem precisar esperar.
