@@ -1,10 +1,8 @@
-# Da implementação à operação
-
 ## Como está publicado
 
-O navegador carrega o React do mesmo serviço Node que responde à API.
-Express verifica autenticação e permissões antes de consultar o PostgreSQL.
-O banco guarda tanto os dados do atendimento quanto as sessões de login.
+- O navegador carrega o React do mesmo serviço Node que responde à API;
+- Express verifica autenticação e permissões antes de consultar o PostgreSQL;
+- O banco guarda tanto os dados do atendimento quanto as sessões de login
 
 ```mermaid
 flowchart TD
@@ -13,76 +11,45 @@ flowchart TD
     Git["GitHub: código e migrations"] -->|Build| App
 ```
 
-No desenvolvimento, Vite serve a interface e encaminha /api para o Express.
-Docker Compose sobe apenas o PostgreSQL. Os comandos e variáveis estão no
-README para que o avaliador consiga reproduzir o ambiente.
+- Vite serve a interface e encaminha /api para o Express.
+- Docker Compose sobe apenas o PostgreSQL.
+- Comandos e variáveis estão no README para o ambiente ser reproduzido.
 
-## Como uma mudança chega ao site
+## Publicação de mudanças
 
-A revisão começa localmente: instalação pelo lockfile, migrations no banco
-isolado de testes, testes de integração e build. Alterações de schema também
-exigem ler o SQL gerado; uma migration válida pode apagar dados se for inadequada.
+Antes de publicar, executo os testes com um banco separado e gero o build.
+Quando há alteração no modelo, reviso também o SQL da migration.
 
-Depois do commit e push, o deploy do Render instala as dependências e compila
-a aplicação. Na inicialização, migrate deploy aplica migrations pendentes e o
-seed configura as duas contas iniciais. O seed atualiza seus nomes para admin
-e terapeuta_1, mas preserva senhas e vínculos existentes. O serviço é liberado
-após iniciar; /api/ready permite conferir a conexão com o banco.
+O código fica no GitHub e o Render publica a aplicação a partir da branch
+main. Na inicialização, as migrations pendentes são aplicadas e configuradas
+as contas de avaliação. 
 
-Não há CI configurado no repositório. Automatizar build e testes com um
-PostgreSQL isolado seria o próximo passo: evita depender de alguém lembrar
-desses comandos. O deploy então deveria depender da aprovação desses checks.
+Uma reversão do código não desfaz mudanças no banco. Por isso, alterações
+de schema devem manter compatibilidade com a versão anterior sempre que
+possível. Mudanças que removem dados exigem backup e um plano de recuperação.
 
-Executar migrations antes do servidor é uma simplificação para uma instância.
-Com várias instâncias ou dados reais, essa etapa deve ser separada e controlada.
-O seed de avaliação também deve sair da inicialização de um ambiente clínico.
+## Segurança
 
-## E se o deploy der errado?
+- A API verifica o perfil do usuário e sua autorização para cada paciente.
+- Revogar o acesso impede novas consultas e registros, mas preserva os
+atendimentos anteriores.
 
-Voltar o código não desfaz a migration. A versão anterior precisa aceitar o
-schema que ficou no banco. Por isso, mudanças maiores devem ser feitas em
-etapas: adicionar a estrutura nova, adaptar o código e os dados, e só depois
-remover o que deixou de ser usado. Migrations já aplicadas não são reescritas.
+As senhas são armazenadas com Argon2id. O login usa uma sessão no servidor
+e cookie HttpOnly, com Secure em produção. Há verificação de origem nas
+escritas e limite de tentativas de login. As credenciais ficam em variáveis
+de ambiente, fora do repositório.
 
-Antes de uma mudança destrutiva, é necessário ter backup e restauração testada.
-Não há backup validado nesta entrega. O plano gratuito do Render também tem
-suspensão por inatividade e PostgreSQL com validade de 30 dias; ele serve à
-avaliação, não à continuidade de um atendimento clínico.
+## Evolução da arquitetura
 
-## Cuidados que já fazem parte do código
+A primeira prioridade seria permitir correções de coletas sem sobrescrever
+o histórico, registrando o valor anterior, o autor e o motivo da alteração.
 
-As permissões são verificadas no backend, por paciente. Esconder um botão não
-é controle de acesso. A revogação bloqueia novas consultas e gravações, enquanto
-as sessões anteriores permanecem disponíveis ao administrador.
+Para operação contínua, substituiria o plano gratuito por uma estrutura
+com backup e disponibilidade adequados. O ambiente atual pode suspender
+por inatividade, e o banco gratuito tem validade limitada.
 
-Senhas são armazenadas com Argon2id. O cookie de login é HttpOnly, SameSite=Lax
-e Secure em produção. A sessão é regenerada no login, destruída no logout e
-expira. Escritas exigem a origem configurada, e tentativas de login têm limite.
-Secrets ficam em variáveis de ambiente. Erros inesperados retornam mensagem
-genérica; os logs não precisam conter nomes, senhas ou resultados clínicos.
-
-Validações de entrada, FKs e transações evitam dados incoerentes. Não foram
-removidas para encurtar o código, porque sustentam os requisitos de acesso e
-preservação do histórico. Os dados usados na avaliação devem ser fictícios.
-
-## O que priorizar antes de dados reais
-
-Primeiro, confirmar a matriz de permissões com a clínica e usar contas
-individuais. Definir como corrigir coletas, registrar autor e motivo das
-alterações, e auditar acessos sem espalhar conteúdo clínico pelos logs.
-
-Depois, adotar banco com backup, testar recuperação e combinar metas de tempo
-de indisponibilidade e perda aceitável de dados. Restringir acesso de rede ao
-banco e separar credenciais de migrations e da aplicação. Retenção e processos
-de privacidade precisam ser definidos com os responsáveis pelo serviço.
-
-## Se o volume crescer
-
-Medir consultas lentas, latência, erros e conexões antes de mudar a arquitetura.
-Expandir paginação e ajustar índices conforme consultas reais. Sessões de login
-já são compartilhadas no banco, mas o limitador de login usa memória local e
-precisaria de estado compartilhado ao adicionar instâncias.
-
-Separar relatórios demorados em tarefas assíncronas pode fazer sentido quando
-eles existirem. O fluxo atual salva pequenas transações e não precisa de filas
-ou microsserviços para funcionar.
+Se o volume aumentar, começaria medindo consultas lentas e uso de conexões.
+Ajustaria índices e paginação antes de separar serviços. Caso fossem
+necessárias várias instâncias da API, as sessões já estariam compartilhadas
+no PostgreSQL, mas o limitador de login também precisaria de armazenamento
+compartilhado.
